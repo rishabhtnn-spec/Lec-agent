@@ -1,0 +1,7 @@
+Sprint planning happens every two weeks on Monday mornings.
+Product reviews are held every Friday at 3pm.
+Feature requests must go through the prioritization framework before being added to the roadmap.
+The prioritization framework scores features on: user impact (1-10), effort (1-10), strategic alignment (1-10).
+All features need a one-pager before engineering kickoff.
+Bug severity levels: P0 = system down, P1 = major feature broken, P2 = minor issue, P3 = cosmetic.
+P0 bugs require immediate response. P1 bugs within 24 hours.

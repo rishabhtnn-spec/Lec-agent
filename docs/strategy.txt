@@ -1,0 +1,7 @@
+Our north star metric is weekly active users who complete at least 3 sessions with Lec.
+Current focus: reducing time-to-first-value for new users.
+Target users: product managers at B2B SaaS companies with 50-500 employees.
+Key differentiator: Lec remembers context across sessions unlike generic AI assistants.
+Pricing model: freemium with 50 free messages per month, $20/month for unlimited.
+Current retention at 30 days: 34%. Target: 50%.
+Biggest drop-off point: users who don't complete onboarding in first session.

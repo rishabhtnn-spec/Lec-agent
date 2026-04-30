@@ -7,37 +7,62 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, sans-serif; background: #f5f5f0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .container { width: 100%; max-width: 680px; height: 90vh; display: flex; flex-direction: column; background: white; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); overflow: hidden; }
+  .container { width: 100%; max-width: 760px; height: 92vh; display: flex; flex-direction: column; gap: 12px; }
+  .section { background: white; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); overflow: hidden; display: flex; flex-direction: column; }
+  .chat-section { flex: 1; min-height: 0; }
+  .plan-section { height: 34%; min-height: 220px; }
   .header { padding: 16px 20px; border-bottom: 1px solid #eee; }
   .header h1 { font-size: 17px; font-weight: 500; }
   .header p { font-size: 13px; color: #888; margin-top: 2px; }
   .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .plan-results { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #eee; }
   .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6; }
   .user { align-self: flex-end; background: #534AB7; color: white; border-radius: 12px 12px 2px 12px; }
   .agent { align-self: flex-start; background: #f0f0eb; color: #1a1a1a; border-radius: 12px 12px 12px 2px; }
   .tool-badge { font-size: 11px; color: #854F0B; background: #FAEEDA; padding: 2px 8px; border-radius: 20px; margin-top: 6px; display: inline-block; }
+  .source-badge { font-size: 11px; color: #666; background: #ececec; padding: 2px 8px; border-radius: 20px; margin-top: 6px; margin-right: 6px; display: inline-block; }
   .meta { font-size: 11px; color: #aaa; margin-top: 4px; }
   .input-row { display: flex; gap: 8px; padding: 16px; border-top: 1px solid #eee; }
+  .input-row.plan-input { border-top: none; }
   input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; font-size: 14px; outline: none; }
   input:focus { border-color: #534AB7; }
   button { background: #534AB7; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; cursor: pointer; }
   button:hover { background: #3C3489; }
   button:disabled { background: #ccc; cursor: not-allowed; }
   .typing { color: #aaa; font-style: italic; font-size: 13px; }
+  .plan-card { align-self: flex-start; width: 100%; max-width: 100%; background: #f8f8ff; border: 1px solid #e5e3ff; border-radius: 12px; padding: 12px 14px; }
+  .plan-title { font-size: 12px; color: #534AB7; font-weight: 600; margin-bottom: 6px; }
+  .plan-action { font-size: 14px; color: #1a1a1a; margin-bottom: 6px; }
+  .plan-output-label { font-size: 11px; color: #777; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .plan-output { font-size: 13px; color: #333; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="header">
-    <h1>Lec</h1>
-    <p>Product strategist · tools enabled</p>
+  <div class="section chat-section">
+    <div class="header">
+      <h1>Lec</h1>
+      <p>Chat interface · tools enabled</p>
+    </div>
+    <div class="messages" id="messages">
+      <div class="msg agent">Hi, I'm Lec. Ask me anything — I can calculate numbers, check the date, and think through product problems with you.</div>
+    </div>
+    <div class="input-row">
+      <input id="input" type="text" placeholder="Ask Lec something..." onkeydown="if(event.key==='Enter') send()"/>
+      <button id="btn" onclick="send()">Send</button>
+    </div>
   </div>
-  <div class="messages" id="messages">
-    <div class="msg agent">Hi, I'm Lec. Ask me anything — I can calculate numbers, check the date, and think through product problems with you.</div>
-  </div>
-  <div class="input-row">
-    <input id="input" type="text" placeholder="Ask Lec something..." onkeydown="if(event.key==='Enter') send()"/>
-    <button id="btn" onclick="send()">Send</button>
+
+  <div class="section plan-section">
+    <div class="header">
+      <h1>Planner</h1>
+      <p>Plan interface · step cards</p>
+    </div>
+    <div class="input-row plan-input">
+      <input id="planInput" type="text" placeholder="Give Lec a goal to plan..." onkeydown="if(event.key==='Enter') sendPlan()"/>
+      <button id="planBtn" onclick="sendPlan()">Plan</button>
+    </div>
+    <div class="plan-results" id="planResults"></div>
   </div>
 </div>
 <script>
@@ -81,6 +106,15 @@
         });
       }
 
+      if (data.sources && data.sources.length > 0) {
+        data.sources.forEach(source => {
+          const sourceBadge = document.createElement('span');
+          sourceBadge.className = 'source-badge';
+          sourceBadge.textContent = source;
+          agentDiv.appendChild(sourceBadge);
+        });
+      }
+
       const meta = document.createElement('div');
       meta.className = 'meta';
       meta.textContent = data.tokens + ' tokens';
@@ -94,6 +128,43 @@
     input.focus();
   }
 
+  async function sendPlan() {
+    const planInput = document.getElementById('planInput');
+    const planBtn = document.getElementById('planBtn');
+    const goal = planInput.value.trim();
+    if (!goal) return;
+
+    addMessage('Goal: ' + goal, 'user');
+    planInput.value = '';
+    planBtn.disabled = true;
+
+    const planning = addPlanStatus('Planning...');
+
+    try {
+      const res = await fetch('/plan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ goal })
+      });
+      const data = await res.json();
+      planning.remove();
+
+      if (!res.ok) {
+        addMessage(data.error || 'Planning failed.', 'agent');
+      } else if (Array.isArray(data.results) && data.results.length > 0) {
+        data.results.forEach(step => addPlanCard(step));
+      } else {
+        addPlanStatus('No plan steps returned.');
+      }
+    } catch (e) {
+      planning.remove();
+      addPlanStatus('Error — check your server logs.');
+    }
+
+    planBtn.disabled = false;
+    planInput.focus();
+  }
+
   function addMessage(text, type) {
     const div = document.createElement('div');
     div.className = 'msg ' + type;
@@ -102,6 +173,47 @@
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
     return div;
+  }
+
+  function addPlanCard(step) {
+    const card = document.createElement('div');
+    card.className = 'plan-card';
+
+    const title = document.createElement('div');
+    title.className = 'plan-title';
+    title.textContent = 'Step ' + step.step;
+
+    const action = document.createElement('div');
+    action.className = 'plan-action';
+    action.textContent = step.action || '';
+
+    const outputLabel = document.createElement('div');
+    outputLabel.className = 'plan-output-label';
+    outputLabel.textContent = 'Output';
+
+    const output = document.createElement('div');
+    output.className = 'plan-output';
+    output.textContent = step.output || '';
+
+    card.appendChild(title);
+    card.appendChild(action);
+    card.appendChild(outputLabel);
+    card.appendChild(output);
+
+    const results = document.getElementById('planResults');
+    results.appendChild(card);
+    results.scrollTop = results.scrollHeight;
+    return card;
+  }
+
+  function addPlanStatus(text) {
+    const status = document.createElement('div');
+    status.className = 'msg agent typing';
+    status.textContent = text;
+    const results = document.getElementById('planResults');
+    results.appendChild(status);
+    results.scrollTop = results.scrollHeight;
+    return status;
   }
 </script>
 </body>

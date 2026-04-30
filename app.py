@@ -3,6 +3,8 @@ import anthropic
 from datetime import datetime
 import math, os, secrets
 import json
+from planner import run_plan
+from rag import search, format_context
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -170,6 +172,16 @@ def chat():
     user_id = data.get("user_id", "default")
     memory = load_memory(user_id)
     system_prompt = build_system_prompt(memory)
+    rag_results = search(user_message) if user_message else []
+    sources = list(dict.fromkeys([item.get("source") for item in rag_results if item.get("source")]))
+
+    if rag_results:
+        context_block = format_context(rag_results)
+        system_prompt = (
+            f"{system_prompt}\n\n"
+            "Knowledge base context:\n"
+            f"{context_block}"
+        )
 
     if not user_message:
         return jsonify({"error": "Empty message"}), 400
@@ -208,7 +220,8 @@ def chat():
                 "reply": final_text,
                 "history": history,
                 "tools_used": tool_calls_log,
-                "tokens": response.usage.output_tokens
+                "tokens": response.usage.output_tokens,
+                "sources": sources
             })
 
 
@@ -216,6 +229,17 @@ def chat():
 def get_memory():
     user_id = request.args.get("user_id", "default")
     return jsonify(load_memory(user_id))
+
+
+@app.route("/plan", methods=["POST"])
+def plan():
+    data = request.json or {}
+    goal = data.get("goal", "").strip()
+
+    if not goal:
+        return jsonify({"error": "Empty goal"}), 400
+
+    return jsonify(run_plan(goal))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
